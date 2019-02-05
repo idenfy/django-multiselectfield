@@ -14,18 +14,21 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this software.  If not, see <http://www.gnu.org/licenses/>.
 
-
+from django import VERSION
 from django.conf import settings
 from django.contrib.auth import login
 from django.contrib.auth import get_user_model
 
-from django.core.urlresolvers import reverse
+if VERSION[0] >= 2:
+    from django.urls import reverse
+else:
+    from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect
 
 
 def app_index(request):
-    user = get_user_model().objects.get(username='admin')
-    if not hasattr(user, 'backend'):
+    user = get_user_model().objects.get(username="admin")
+    if not hasattr(user, "backend"):
         user.backend = settings.AUTHENTICATION_BACKENDS[0]
     login(request, user)
-    return HttpResponseRedirect(reverse('admin:app_book_change', args=(1,)))
+    return HttpResponseRedirect(reverse("admin:app_book_change", args=(1,)))

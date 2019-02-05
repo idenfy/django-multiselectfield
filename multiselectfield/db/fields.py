@@ -23,12 +23,16 @@ from django.utils.text import capfirst
 from django.utils.encoding import python_2_unicode_compatible
 from django.core import exceptions
 
-from ..forms.fields import MultiSelectFormField, MinChoicesValidator, MaxChoicesValidator
+from ..forms.fields import (
+    MultiSelectFormField,
+    MinChoicesValidator,
+    MaxChoicesValidator,
+)
 from ..utils import get_max_length
 from ..validators import MaxValueMultiFieldValidator
 
 if sys.version_info < (3,):
-    string_type = unicode  # noqa: F821
+    string_type = unicode
 else:
     string_type = str
 
@@ -37,34 +41,38 @@ else:
 
 def add_metaclass(metaclass):
     """Class decorator for creating a class with a metaclass."""
+
     def wrapper(cls):
         orig_vars = cls.__dict__.copy()
-        orig_vars.pop('__dict__', None)
-        orig_vars.pop('__weakref__', None)
-        for slots_var in orig_vars.get('__slots__', ()):
+        orig_vars.pop("__dict__", None)
+        orig_vars.pop("__weakref__", None)
+        for slots_var in orig_vars.get("__slots__", ()):
             orig_vars.pop(slots_var)
         return metaclass(cls.__name__, cls.__bases__, orig_vars)
+
     return wrapper
 
 
 @python_2_unicode_compatible
 class MSFList(list):
-
     def __init__(self, choices, *args, **kwargs):
         self.choices = choices
         super(MSFList, self).__init__(*args, **kwargs)
 
     def __str__(msgl):
-        l = [msgl.choices.get(int(i)) if i.isdigit() else msgl.choices.get(i) for i in msgl]
-        return u', '.join([string_type(s) for s in l])
+        l = [
+            msgl.choices.get(int(i)) if i.isdigit() else msgl.choices.get(i)
+            for i in msgl
+        ]
+        return u", ".join([string_type(s) for s in l])
 
 
 class MultiSelectField(models.CharField):
     """ Choice values can not contain commas. """
 
     def __init__(self, *args, **kwargs):
-        self.min_choices = kwargs.pop('min_choices', None)
-        self.max_choices = kwargs.pop('max_choices', None)
+        self.min_choices = kwargs.pop("min_choices", None)
+        self.max_choices = kwargs.pop("max_choices", None)
         super(MultiSelectField, self).__init__(*args, **kwargs)
         self.max_length = get_max_length(self.choices, self.max_length)
         self.validators[0] = MaxValueMultiFieldValidator(self.max_length)
@@ -82,8 +90,11 @@ class MultiSelectField(models.CharField):
             # out)
             def __bool__(self):
                 return False
+
             __nonzero__ = __bool__
+
         return MSFFlatchoices(l)
+
     flatchoices = property(_get_flatchoices)
 
     def get_choices_default(self):
@@ -102,17 +113,16 @@ class MultiSelectField(models.CharField):
         return choices_selected
 
     def value_to_string(self, obj):
-        value = self._get_val_from_obj(obj)
+        value = self.value_from_object(obj)
         return self.get_prep_value(value)
 
     def validate(self, value, model_instance):
         arr_choices = self.get_choices_selected(self.get_choices_default())
         for opt_select in value:
-            if (opt_select not in arr_choices):
-                if VERSION >= (1, 6):
-                    raise exceptions.ValidationError(self.error_messages['invalid_choice'] % {"value": value})
-                else:
-                    raise exceptions.ValidationError(self.error_messages['invalid_choice'] % value)
+            if opt_select not in arr_choices:
+                raise exceptions.ValidationError(
+                    self.error_messages["invalid_choice"] % {"value": value}
+                )
 
     def get_default(self):
         default = super(MultiSelectField, self).get_default()
@@ -121,19 +131,21 @@ class MultiSelectField(models.CharField):
         return default
 
     def formfield(self, **kwargs):
-        defaults = {'required': not self.blank,
-                    'label': capfirst(self.verbose_name),
-                    'help_text': self.help_text,
-                    'choices': self.choices,
-                    'max_length': self.max_length,
-                    'max_choices': self.max_choices}
+        defaults = {
+            "required": not self.blank,
+            "label": capfirst(self.verbose_name),
+            "help_text": self.help_text,
+            "choices": self.choices,
+            "max_length": self.max_length,
+            "max_choices": self.max_choices,
+        }
         if self.has_default():
-            defaults['initial'] = self.get_default()
+            defaults["initial"] = self.get_default()
         defaults.update(kwargs)
         return MultiSelectFormField(**defaults)
 
     def get_prep_value(self, value):
-        return '' if value is None else ",".join(value)
+        return "" if value is None else ",".join(value)
 
     def get_db_prep_value(self, value, connection, prepared=False):
         if not prepared and not isinstance(value, string_type):
@@ -144,10 +156,12 @@ class MultiSelectField(models.CharField):
         choices = dict(self.flatchoices)
 
         if value:
-            return value if isinstance(value, list) else MSFList(choices, value.split(','))
+            return (
+                value if isinstance(value, list) else MSFList(choices, value.split(","))
+            )
         return MSFList(choices, [])
 
-    def from_db_value(self, value, expression, connection, context):
+    def from_db_value(self, value, expression, connection, *args):
         if value is None:
             return value
         return self.to_python(value)
@@ -155,6 +169,7 @@ class MultiSelectField(models.CharField):
     def contribute_to_class(self, cls, name):
         super(MultiSelectField, self).contribute_to_class(cls, name)
         if self.choices:
+
             def get_list(obj):
                 fieldname = name
                 choicedict = dict(self.choices)
@@ -172,17 +187,8 @@ class MultiSelectField(models.CharField):
 
             def get_display(obj):
                 return ", ".join(get_list(obj))
+
             get_display.short_description = self.verbose_name
 
-            setattr(cls, 'get_%s_list' % self.name, get_list)
-            setattr(cls, 'get_%s_display' % self.name, get_display)
-
-
-if VERSION < (1, 8):
-    MultiSelectField = add_metaclass(models.SubfieldBase)(MultiSelectField)
-
-try:
-    from south.modelsinspector import add_introspection_rules
-    add_introspection_rules([], ['^multiselectfield\.db.fields\.MultiSelectField'])
-except ImportError:
-    pass
+            setattr(cls, "get_%s_list" % self.name, get_list)
+            setattr(cls, "get_%s_display" % self.name, get_display)
