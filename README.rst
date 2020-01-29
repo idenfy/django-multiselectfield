@@ -1,3 +1,6 @@
+This is a project fork from https://github.com/goinnn/django-multiselectfield
+=======================
+
 django-multiselectfield
 =======================
 
